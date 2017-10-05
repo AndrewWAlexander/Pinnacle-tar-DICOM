@@ -675,7 +675,7 @@ def getheaderinfo():
 # Will read ImageSet_%s.ImageSet file to get date and time of CT image aquisition, only used in cases where image files have not been created
 ####################################################################################################################################################
 def getdateandtime():
-    with open("//sccsrv1/dept/Physics/Personal Folders/Alexander/Projects/Pinnacle Tar/009-2006-07-12.2/Institution_64/Mount_0/Patient_2264/ImageSet_1.ImageSet", "rt", encoding='latin1') as g:
+    with open("//Testfile", "rt", encoding='latin1') as g:
         for line in g:
             if "ScanTimeFromScanner" in line:
                 dateandtimestring = re.findall(r'"([^"]*)"', line)[0]
