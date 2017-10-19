@@ -1485,7 +1485,7 @@ def readtrial(ds, planfolder, plannumber):
             beamdosefiles.append(current_dosefile_num)
             print(current_dosefile_num)
             print(len(beamdosefiles))
-        if "Beam ={" in line:
+        if "Beam ={" in line and 'Proton' not in line:
             #print("Line that indicates beam information\n")
             #new beam
             MUlineflag = False
