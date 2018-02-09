@@ -100,8 +100,6 @@ no_setup_file = False
 no_beams = False
 gImplementationClassUID='1.2.826.0.1.3680043.8.498.75006884747854523615841001'
 Manufacturer="Pinnacle Philips"
-Inputf="//Inputfolder/"
-outputfolder="//outputfolder/"
 PDD6MV = 0.6683
 PDD10MV = 0.6683 # Also temporary, need to get actual PDD value
 PDD15MV = 0.7658
@@ -120,10 +118,9 @@ ypixdim = 0
 # This main function is what should be called to run program
 # The name of the patient folder should be passed into the function for it to be run. This folder should be stored under Inputf directory (line 102)
 ####################################################################################################################################################
-def main(temppatientfolder):
+def main(temppatientfolder,inputfolder,outputfolder):
     global ROI_COUNT
     global structfilename
-    global outputfolder
     global SeriesUID
     global StudyInstanceUID
     global FrameUID
@@ -155,6 +152,8 @@ def main(temppatientfolder):
     global yshift
     global lname
     global fname
+    global Inputf
+    global Outputf
     global patientfolder
     global structsopinstuid
     global structseriesinstuid
@@ -174,11 +173,15 @@ def main(temppatientfolder):
     
     #temppatientfolder="Patient_9419"
     patientfolder = temppatientfolder 
-    print("Current Patient: " + patientfolder)
-    if not os.path.exists(outputfolder+"%s"%(patientfolder)):
-        os.makedirs(outputfolder+"%s"%(patientfolder)) #Create folder for exported DICOM files if it does not already exist
+    Inputf = inputfolder
+    Outputf = outputfolder
 
-    print("Output location: " + outputfolder) 
+    print("Pinnacle tar folder path: " + Inputf)
+    print("Current Patient: " + patientfolder)
+    if not os.path.exists(Outputf+"%s"%(patientfolder)):
+        os.makedirs(Outputf+"%s"%(patientfolder)) #Create folder for exported DICOM files if it does not already exist
+
+    print("Output location: " + Outputf) 
     
     structsopinstuid = dicom.UID.generate_uid() 
     structds = createstructds() #creating dataset for structure file
@@ -244,7 +247,7 @@ def main(temppatientfolder):
     #structfilepath=outputfolder + patientfolder + "/" + structfilename
     #structds.save_as("structfilepath")
     print("Structure file being saved\n")
-    structds.save_as(outputfolder + "/%s/%s"%(patientfolder, structfilename))
+    structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename))
     doseseriesuid = dicom.UID.generate_uid()
     print("creating plan data structures \n")
     
@@ -268,12 +271,12 @@ def main(temppatientfolder):
         planfilename = 'RP.' + tempmetainstuid + '.dcm'
 
         print("Plan file name: " + planfilename)
-        planfilepath=outputfolder + patientfolder + "/" + planfilename
+        planfilepath=Outputf + patientfolder + "/" + planfilename
 
         print(planfilepath)
         print("\n Saving plan file \n")
         exec("plands_%s.save_as(planfilepath)"%(planids[i]))
-    os.rename(outputfolder+'%s'% patientfolder, outputfolder+'%s,%s,%s'%(lname,fname,pid))
+    os.rename(Outputf+'%s'% patientfolder, Outputf+'%s,%s,%s'%(lname,fname,pid))
     #print("\n \n Current software versions found: \n")
     #for ver in softwarev:
         #print(ver)
@@ -483,10 +486,10 @@ def convertimages():
         preamble = getattr(imageds, "preamble", None)
         if not preamble:
             preamble = b'\x00'*128
-        currfile = DicomFile(outputfolder+"%s/CT.%s.dcm"%(patientfolder, tempinstuid), 'wb')
+        currfile = DicomFile(Outputf+"%s/CT.%s.dcm"%(patientfolder, tempinstuid), 'wb')
         currfile.write(preamble)
         currfile.write(b'DICM')
-        dicom.write_file(outputfolder+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
+        dicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
         print("Current image: ", file)
 ####################################################################################################################################################
 ####################################################################################################################################################                      
@@ -619,8 +622,8 @@ def createimagefiles():
                 imageuid.append(instuid)
                 image_orientation = ds.ImageOrientationPatient
                 posrefind = ds.PositionReferenceIndicator
-                print("Creating image: " + outputfolder + "%s/CT.%s.dcm"%(patientfolder, instuid))
-                ds.save_as(outputfolder + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                print("Creating image: " + Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                ds.save_as(Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
                 curframe = curframe + 1
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -1963,7 +1966,7 @@ def readtrial(ds, planfolder, plannumber):
         ofile.close()
         dosefilename="RD."+doseds.file_meta.MediaStorageSOPInstanceUID+".dcm"
         print("\n Creating Dose file named : %s \n"%(dosefilename))
-        doseds.save_as(outputfolder+"%s/%s"%(patientfolder,dosefilename))
+        doseds.save_as(Outputf+"%s/%s"%(patientfolder,dosefilename))
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence = Sequence()
     #ReferencedDoseReference2 = Dataset()
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence.append(ReferencedDoseReference2)
@@ -2150,7 +2153,7 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
         pixel_binary_block = struct.pack('%si' % len(pixelvaluelist), *pixelvaluelist)
         temp_beamds.PixelData = pixel_binary_block
         #print("\n Creating Dose file named : %s \n"%(RDfilename))
-        #temp_beamds.save_as(outputfolder+"%s/%s"%(patientfolder,RDfilename))
+        #temp_beamds.save_as(Outputfolder+"%s/%s"%(patientfolder,RDfilename))
     return main_pix_array, ds
 
 ####################################################################################################################################################
