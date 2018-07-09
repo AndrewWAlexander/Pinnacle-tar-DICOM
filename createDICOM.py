@@ -171,7 +171,6 @@ def main(temppatientfolder,inputfolder,outputfolder):
     #print("Input Patient Folder:")
     #patientfolder = raw_input("> ")
     
-    #temppatientfolder="Patient_9419"
     patientfolder = temppatientfolder 
     Inputf = inputfolder
     Outputf = outputfolder
@@ -276,7 +275,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         print(planfilepath)
         print("\n Saving plan file \n")
         exec("plands_%s.save_as(planfilepath)"%(planids[i]))
-    os.rename(Outputf+'%s'% patientfolder, Outputf+'%s,%s,%s'%(lname,fname,pid))
+    #os.rename(Outputf+'%s'% patientfolder, Outputf+'%s,%s,%s'%(lname,fname,pid))
     #print("\n \n Current software versions found: \n")
     #for ver in softwarev:
         #print(ver)
@@ -1232,18 +1231,18 @@ def readroi(ds, planfolder):
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence = Sequence()
                 if ROI_COUNT - prevroi <= len(Colors):
                     ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - prevroi - 1]
-                    print(ROI_COUNT - prevroi-1)
+                    #print(ROI_COUNT - prevroi-1)
                 else:
                     if ROI_COUNT - 1 - len(Colors) < len(Colors):
                         ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - 1 - len(Colors)]
-                        print(ROI_COUNT - 1 - len(Colors))
+                        #print(ROI_COUNT - 1 - len(Colors))
                     elif ROI_COUNT - 1 - len(Colors) - len(Colors) < len(Colors):
                         ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - 1 - len(Colors) - len(Colors)]
-                        print(ROI_COUNT - 1 - len(Colors) - len(Colors))
+                        #print(ROI_COUNT - 1 - len(Colors) - len(Colors))
                     else:
                         ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - 1 - len(Colors) - len(Colors) - len(Colors)]
-                        print(ROI_COUNT - 1 - len(Colors) - len(Colors) - len(Colors))
-                print(ROIName)
+                        #print(ROI_COUNT - 1 - len(Colors) - len(Colors) - len(Colors))
+                print('ROI Number & Name: '+str(ROI_COUNT)+', '+ROIName)
             if "}; // End of ROI" in line: #end of ROI found
                 #ROI_type = line[31:]
                 #ROI_type = ROI_type.replace('\n','')
@@ -1404,7 +1403,7 @@ def readtrial(ds, planfolder, plannumber):
     global PDD16MV
     global PDD10MV
     global PDD6MV
-    print("Entering readtrial, isocenter: " + str(isocenter))
+    print("Entering readtrial function, isocenter: " + str(isocenter))
     beamdoses = []
     beamdosefiles = []
     beamcount = 0
@@ -1486,8 +1485,8 @@ def readtrial(ds, planfolder, plannumber):
             elif int(current_dosefile_num) < 100:
                 current_dosefile_num = "0" + current_dosefile_num 
             beamdosefiles.append(current_dosefile_num)
-            print(current_dosefile_num)
-            print(len(beamdosefiles))
+            print('Reading file: plan.Trail.binary.'+str(current_dosefile_num))
+            print('Number of dose files read: '+str(len(beamdosefiles)))
         if "Beam ={" in line and 'Proton' not in line:
             #print("Line that indicates beam information\n")
             #new beam
@@ -1568,36 +1567,27 @@ def readtrial(ds, planfolder, plannumber):
         if "PrescriptionDose =" in line and MUlineflag == True:
             prescripdose =  float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
             normdose = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 15])[0])
+            OFc = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 17])[0])
+            # OFc value added by Achraf Touzani 2018
             if normdose == 0:
                 beammu = 0 
-                print("Beam MU: " + str(beammu))
-                ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
-                beamdoses.append(beammu)
                 continue
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDose = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/100
             if beamenergies[beamcount-1] == '6': 
-                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD6MV)
-                print("Beam MU: " + str(beammu))
-                ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
-                beamdoses.append(beammu)
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD6MV*OFc)
             elif beamenergies[beamcount-1] == '15': 
-                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD15MV)
-                print("Beam MU: " + str(beammu))
-                ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
-                beamdoses.append(beammu)
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD15MV*OFc)
             elif beamenergies[beamcount-1] == '16':
-                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD16MV)
-                print("Beam MU: " + str(beammu))
-                ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
-                beamdoses.append(beammu)
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD16MV*OFc)
             elif beamenergies[beamcount-1] == '10':
-                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD10MV)
-                print("Beam MU: " + str(beammu))
-                ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
-                beamdoses.append(beammu)
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD10MV*OFc)
             else:
                 print("\n \n Error, beam energy not 6, 10, 15 or 16 MV")
                 return
+            print("Beam MU: " + str(beammu))
+            ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
+            beamdoses.append(beammu)
+
             MUlineflag = False
             #Figure out what to do with BeamDose
         if "MachineNameAndVersion =" in line and nomachinename:
