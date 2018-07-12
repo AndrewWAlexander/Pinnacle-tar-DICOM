@@ -526,8 +526,14 @@ def createimagefiles():
     global posrefind
     global imagesetnumber
     global image_orientation
+
+    vv=int(imagesetnumber)    
+    if vv < 0:
+        print("\nError, Image set number is less than 0. There will be no images for this patient.\n")
+        return 
     
     currentpatientposition = getheaderinfo()
+
     if os.path.isfile("%s%s/ImageSet_%s.img"%(Inputf, patientfolder, imagesetnumber)):
         allframeslist = []
         pixel_array = np.fromfile("%s%s/ImageSet_%s.img"%(Inputf, patientfolder, imagesetnumber), dtype = np.short)
@@ -979,14 +985,14 @@ def readpatientinfo(ds):
                 plannamelist.append(re.findall(r'"([^"]*)"', line)[0])
                 ds.StructureSetLabel = plannamelist[plancount - 1]
             if "PrimaryCTImageSetID =" in line:
-                imagesetnumber = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
+                #print(line)
+                imagesetnumber =re.findall(r'-?\d+\.?\d*',line)[0]
                 print("Image set number: " + imagesetnumber)
                 planimagesets.append(imagesetnumber)
             if "    PlanID =" in line:
                 planIDnumber = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]        	
                 planids.append(planIDnumber)
                 print("Plan ID : " + planIDnumber)
-
             if "    StudyID = " in line:
                 sid = re.findall(r'"([^"]*)"', line)[0]
                 print ("Study id: ", sid)
@@ -1123,22 +1129,25 @@ def readpoints(ds, planfolder):
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence = Sequence()
                 ContourImage1 = Dataset()
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence.append(ContourImage1)
-                closestvalue = abs(float(imageslice[0]) - float(refpoint[-1]))
-                closestlocation = 0
-                match = False
-                for i, s in enumerate(imageslice,0):
-                    #print("finding corresponding image\n")
-                    if abs(float(s) - (float(refpoint[-1]))) < 0.01: #making this the tolerance
+                
+                #if there are no images within this patient
+                if len(imageslice) >1:
+                    closestvalue = abs(float(imageslice[0]) - float(refpoint[-1]))
+                    closestlocation = 0
+                    match = False
+                    for i, s in enumerate(imageslice,0):
+                        #print("finding corresponding image\n")
+                        if abs(float(s) - (float(refpoint[-1]))) < 0.01: #making this the tolerance
+                            ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
+                            ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[i]
+                            match = True
+                        else:
+                            if abs(float(s) - (float(refpoint[-1]))) < closestvalue:
+                                closestvalue = abs(float(s) - (float(refpoint[-1])))
+                                closestlocation = i
+                    if not match:
                         ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
-                        ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[i]
-                        match = True
-                    else:
-                        if abs(float(s) - (float(refpoint[-1]))) < closestvalue:
-                            closestvalue = abs(float(s) - (float(refpoint[-1])))
-                            closestlocation = i
-                if not match:
-                    ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
-                    ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[closestlocation]
+                        ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[closestlocation]
 
     if len(isocenter) < 2:
         isocenter = ctcenter
