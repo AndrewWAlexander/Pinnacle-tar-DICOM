@@ -544,6 +544,7 @@ def createimagefiles():
     print("Length of frames list: " + str(len(allframeslist)))
     with open("%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber), 'rt', encoding='latin1') as f:
         image_info = f.readlines()
+        #print(image_info)
         curframe = 0
         for i, line in enumerate(image_info, 0):
             if "ImageInfo ={" in line:
@@ -554,7 +555,9 @@ def createimagefiles():
                 frameuid = re.findall(r'"([^"]*)"', image_info[i + 6])[0]
                 studyinstuid = re.findall(r'"([^"]*)"', image_info[i + 5])[0]
                 slicenum = int(re.findall(r"[-+]?\d*\.\d+|\d+", image_info[i + 3])[0])
-                dateofscan, timeofscan = getdateandtime()
+                filename="%s%s/ImageSet_%s.ImageSet"%(Inputf, patientfolder, imagesetnumber)
+                print(filename)
+                dateofscan, timeofscan = getdateandtime(filename)
                 
                 file_meta = Dataset()
                 file_meta.MediaStorageSOPClassUID = classuid
@@ -685,8 +688,8 @@ def getheaderinfo():
 # Function: getdateandtime
 # Will read ImageSet_%s.ImageSet file to get date and time of CT image aquisition, only used in cases where image files have not been created
 ####################################################################################################################################################
-def getdateandtime():
-    with open("//Testfile", "rt", encoding='latin1') as g:
+def getdateandtime(filename):
+    with open(filename, "rt", encoding='latin1') as g:
         for line in g:
             if "ScanTimeFromScanner" in line:
                 dateandtimestring = re.findall(r'"([^"]*)"', line)[0]
