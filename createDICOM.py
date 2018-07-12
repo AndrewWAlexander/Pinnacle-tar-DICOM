@@ -207,6 +207,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     planseriesinstuid = dicom.UID.generate_uid()
 
     patient_position = getpatientsetup("Plan_%s"%planids[0])
+    print('Patient position: '+patient_position+'\n')
     if no_setup_file == True:
         return
 
@@ -1590,6 +1591,7 @@ def readtrial(ds, planfolder, plannumber):
             print("Normdose Dose for beam "+str(beamcount)+" : "+str(normdose))
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDose = prescripdose/100
             OFc = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 17])[0]) # OFc value added by Achraf Touzani 2018
+            print("Collimator factor for beam "+str(beamcount)+" : "+str(OFc))
             if beamenergies[beamcount-1] == '6': 
                 PDD=PDD6MV
             elif beamenergies[beamcount-1] == '15': 
@@ -1600,11 +1602,12 @@ def readtrial(ds, planfolder, plannumber):
                 PDD=PDD10MV
             else:
                 print("\n \n Error, beam energy not 6, 10, 15 or 16 MV\n\n")
-                return
-            if normdose == 0.0:
+                PDD=0.0
+            if normdose == 0.0 or PDD==0.0 or OFc==0.0:
             	beammu =0.0
             else:
                 beammu = prescripdose/(normdose*PDD*OFc)
+            print("PDD for beam "+str(beamcount)+" : "+str(PDD))
             print("Beam "+str(beamcount)+" MU: " + str(beammu))
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
             beamdoses.append(beammu)
