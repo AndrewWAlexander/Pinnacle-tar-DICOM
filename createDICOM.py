@@ -1598,12 +1598,9 @@ def readtrial(ds, planfolder, plannumber):
             #ds.BeamSequence[beamcount - 1].SourceAxisDistance = sad
         if "PrescriptionDose =" in line and MUlineflag == True:
             prescripdose = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
-            print("Prescription Dose for beam "+str(beamcount)+": " +str(prescripdose))
             normdose = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 15])[0])
-            print("Normdose Dose for beam "+str(beamcount)+" : "+str(normdose))
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDose = prescripdose/100
             OFc = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 17])[0]) # OFc value added by Achraf Touzani 2018
-            print("Collimator factor for beam "+str(beamcount)+" : "+str(OFc))
             if beamenergies[beamcount-1] == '6': 
                 PDD=PDD6MV
             elif beamenergies[beamcount-1] == '15': 
@@ -1619,11 +1616,10 @@ def readtrial(ds, planfolder, plannumber):
             	beammu =0.0
             else:
                 beammu = prescripdose/(normdose*PDD*OFc)
-            print("PDD for beam "+str(beamcount)+" : "+str(PDD))
-            print("Beam "+str(beamcount)+" MU: " + str(beammu))
+            ssss= "Beam %3i, beam energy : %s, prescription dose : %f, normalization dose : %f, collimator factor : %f, PDD : %f, MU : %f" %(beamcount, beamenergies[beamcount-1],prescripdose,normdose,OFc,PDD,beammu)
+            print(ssss)
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
             beamdoses.append(beammu)
-
             MUlineflag = False
             #Figure out what to do with BeamDose
         if "MachineNameAndVersion =" in line and nomachinename:
@@ -1654,7 +1650,7 @@ def readtrial(ds, planfolder, plannumber):
                 #print("Wedge is no name")
                 numwedges = 0 
             elif "edw" in re.findall(r'"([^"]*)"', line)[0] or "EDW" in re.findall(r'"([^"]*)"', line)[0]:
-                print("Wedge present")
+                #print("Wedge present")
                 wedgetype = "DYNAMIC"
                 wedgeflag = True
                 numwedges = 1
@@ -1902,7 +1898,7 @@ def readtrial(ds, planfolder, plannumber):
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].BeamLimitingDeviceRotationDirection = 'NONE'
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportAngle = psupportangle
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportRotationDirection = 'NONE'
-                    print("No step-and-shoot Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
+                    #print("No step-and-shoot Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].IsocenterPosition = [float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].GantryRotationDirection = gantryrotdir
                     ds.BeamSequence[beamcount - 1].NumberOfWedges = numwedges
@@ -1943,16 +1939,15 @@ def readtrial(ds, planfolder, plannumber):
     ds.FractionGroupSequence[0].NumberOfBrachyApplicationSetups = '0'
     summed_pixel_values = []
     flag_nobinaryfile = False
-    print("beamcount value : "+str(beamcount))
-    print("beamdosefiles length of array : "+str(len(beamdosefiles)))
-    print("beamdoses lenght of array : "+str(len(beamdoses)))
+    #print("beamcount value : "+str(beamcount))
+    #print("beamdosefiles length of array : "+str(len(beamdosefiles)))
+    #print("beamdoses lenght of array : "+str(len(beamdoses)))
     for currentbeam in range(0,beamcount):
         exec("PatientSetup%d = Dataset()"%(currentbeam+1))
         exec("ds.PatientSetupSequence.append(PatientSetup%d)"%(currentbeam+1))
         ds.PatientSetupSequence[currentbeam].PatientPosition = patient_position #get this from patient setup file
         ds.PatientSetupSequence[currentbeam].PatientSetupNumber = (currentbeam + 1)
-        
-        print("creatertdose (plannumber: "+str(plannumber)+"  planfolder :"+planfolder+"  currentbeam: "+str(currentbeam + 1) +"  dosefile: "+str(beamdosefiles[currentbeam])+"  beamdose: "+str(beamdoses[currentbeam])+"  numberoffracs: "+str(numfracs))
+        #print("creatertdose (plannumber: "+str(plannumber)+"  planfolder :"+planfolder+"  currentbeam: "+str(currentbeam + 1) +"  dosefile: "+str(beamdosefiles[currentbeam])+"  beamdose: "+str(beamdoses[currentbeam])+"  numberoffracs: "+str(numfracs))
         temp_pixelvalues, doseds = creatertdose(plannumber, planfolder, currentbeam + 1, beamdosefiles[currentbeam], beamdoses[currentbeam], numfracs)
         doseds.file_meta.MediaStorageSOPInstanceUID = doseinstuid + "." + str(plannumber)
         if flag_nobinaryfile:
