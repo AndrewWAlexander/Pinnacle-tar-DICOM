@@ -80,6 +80,7 @@ planseriesinstuid = ''
 doseseriesuid = ''
 doseinstuid = ''
 planfilename = ''
+patientmedrecord =''
 dosexdim = 0
 doseydim = 0
 dosezdim = 0
@@ -114,6 +115,7 @@ y_dim = 0
 z_dim = 0
 xpixdim = 0
 ypixdim = 0
+Outputf_preference= 1 # 1 setting for same folder name, 0 for patient name
 #listofversions = []
 
 ####################################################################################################################################################
@@ -129,6 +131,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     global FrameUID
     global ClassUID
     global patientname
+    global patientmedrecord
     global dob
     global pid
     global imageslice
@@ -176,14 +179,10 @@ def main(temppatientfolder,inputfolder,outputfolder):
     
     patientfolder = temppatientfolder 
     Inputf = inputfolder
-    Outputf = outputfolder
 
     print("Pinnacle tar folder path: " + Inputf)
-    print("Current Patient: " + patientfolder)
-    if not os.path.exists(Outputf+"%s"%(patientfolder)):
-        os.makedirs(Outputf+"%s"%(patientfolder)) #Create folder for exported DICOM files if it does not already exist
+    print("Current patient folder name: " + patientfolder)
 
-    print("Output location: " + Outputf) 
     
     structsopinstuid = dicom.UID.generate_uid() 
     structds = createstructds() #creating dataset for structure file
@@ -193,8 +192,17 @@ def main(temppatientfolder,inputfolder,outputfolder):
     structds.ReferencedStudySequence = Sequence()
     
     structds = initds(structds)
-
     structds = readpatientinfo(structds)
+    
+    if Outputf_preference==1: # Sets the output folder path for all DICOM files
+        Outputf = outputfolder+"%s"%(patientname+patientmedrecord)
+    else:
+        Outputf = outputfolder+"%s"%(patientfolder)
+    if not os.path.exists(Outputf):
+        os.makedirs(Outputf) #Create folder for exported DICOM files if it does not already exist
+    print("Output location: " + Outputf) 
+
+
     readImageInfo() #Gets UID information for image files 
     structds = initds(structds) #initializes values like uids, creation time, manufacturer, values that are not patient dependent
     
@@ -250,7 +258,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     #structfilepath=outputfolder + patientfolder + "/" + structfilename
     #structds.save_as("structfilepath")
     print("DICOM structure file being saved\n")
-    structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename))
+    structds.save_as(Outputf + "/%s"%(structfilename))
     doseseriesuid = dicom.UID.generate_uid()
     
     #############################################################################################
@@ -277,7 +285,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         planfilename = 'RP.' + tempmetainstuid + '.dcm'
 
         print("Plan file name: " + planfilename)
-        planfilepath=Outputf + patientfolder + "/" + planfilename
+        planfilepath=Outputf + "/" + planfilename
 
         print(planfilepath)
         print("\n Saving plan file \n")
@@ -494,10 +502,10 @@ def convertimages():
         preamble = getattr(imageds, "preamble", None)
         if not preamble:
             preamble = b'\x00'*128
-        currfile = DicomFile(Outputf+"%s/CT.%s.dcm"%(patientfolder, tempinstuid), 'wb')
+        currfile = DicomFile(Outputf+"/CT.%s.dcm"%(tempinstuid), 'wb')
         currfile.write(preamble)
         currfile.write(b'DICM')
-        dicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
+        dicom.write_file(Outputf+"/CT.%s.dcm"%(tempinstuid), imageds, False)
         #print("Current image: ", file)
 ####################################################################################################################################################
 ####################################################################################################################################################                      
@@ -639,8 +647,8 @@ def createimagefiles():
                 imageuid.append(instuid)
                 image_orientation = ds.ImageOrientationPatient
                 posrefind = ds.PositionReferenceIndicator
-                print("Creating image: " + Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
-                ds.save_as(Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                print("Creating image: " + Outputf + "/CT.%s.dcm"%(instuid))
+                ds.save_as(Outputf + "%s/CT.%s.dcm"%(instuid))
                 curframe = curframe + 1
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -901,6 +909,7 @@ def readpatientinfo(ds):
     global FrameUID
     global ClassUID
     global patientname
+    global patientmedrecord
     global dob
     global pid
     global patient_sex
@@ -940,7 +949,7 @@ def readpatientinfo(ds):
                 mname = mname.replace("\\", '')
                 mname = mname.replace('/', '')
             if "MedicalRecordNumber =" in line:
-                medrecnum = re.findall(r'"([^"]*)"', line)[0] 
+                patientmedrecord = re.findall(r'"([^"]*)"', line)[0] 
             if "ReferringPhysician = " in line:
                 refphys = re.findall(r'"([^"]*)"', line)[0]
                 ds.ReferringPhysiciansName = refphys
@@ -1030,7 +1039,7 @@ def readpatientinfo(ds):
     ds.PatientsName = patientname
     print('\nPatient name: '+ patientname)
     print('Patient ID: '+ ds.PatientID)
-    print('Patient medrecord: '+ medrecnum)
+    print('Patient medrecord: '+ patientmedrecord)
     print('Number of plan folders: '+str(plancount))
     return ds
 ####################################################################################################################################################
@@ -1992,7 +2001,7 @@ def readtrial(ds, planfolder, plannumber):
         ofile.close()
         dosefilename="RD."+doseds.file_meta.MediaStorageSOPInstanceUID+".dcm"
         print("\n Creating Dose file named : %s \n"%(dosefilename))
-        doseds.save_as(Outputf+"%s/%s"%(patientfolder,dosefilename))
+        doseds.save_as(Outputf+"/%s"%(dosefilename))
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence = Sequence()
     #ReferencedDoseReference2 = Dataset()
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence.append(ReferencedDoseReference2)
