@@ -648,7 +648,7 @@ def createimagefiles():
                 image_orientation = ds.ImageOrientationPatient
                 posrefind = ds.PositionReferenceIndicator
                 print("Creating image: " + Outputf + "/CT.%s.dcm"%(instuid))
-                ds.save_as(Outputf + "%s/CT.%s.dcm"%(instuid))
+                ds.save_as(Outputf + "/CT.%s.dcm"%(instuid))
                 curframe = curframe + 1
 ####################################################################################################################################################
 ####################################################################################################################################################
