@@ -22,12 +22,12 @@ import time #used for getting current date and time for file
 import re #used for isolated values from strings
 import sys
 import os.path
-import dicom
+import pydicom
 import numpy as np
-from dicom.dataset import Dataset, FileDataset
-from dicom.sequence import Sequence
-from dicom.filebase import DicomFile
-import dicom.UID
+from pydicom.dataset import Dataset, FileDataset
+from pydicom.sequence import Sequence
+from pydicom.filebase import DicomFile
+import pydicom.uid
 import os
 import struct
 from random import randint
@@ -59,9 +59,6 @@ descrip = ""
 plancount = 0
 plannamelist = []
 planids = []
-planids = []
-Imagesetlist=[]
-planimagesets=[]
 randval = randint(0,999)
 currentdate = time.strftime("%Y%m%d")
 currenttime = time.strftime("%H%M%S")
@@ -80,7 +77,6 @@ planseriesinstuid = ''
 doseseriesuid = ''
 doseinstuid = ''
 planfilename = ''
-patientmedrecord =''
 dosexdim = 0
 doseydim = 0
 dosezdim = 0
@@ -115,13 +111,12 @@ y_dim = 0
 z_dim = 0
 xpixdim = 0
 ypixdim = 0
-Outputf_preference= 1 # 1 setting for same folder name, 0 for patient name
 #listofversions = []
 
 ####################################################################################################################################################
 # Function: main
 # This main function is what should be called to run program
-# The name of the patient folder should be passed into the function for it to be run. 
+# The name of the patient folder should be passed into the function for it to be run. This folder should be stored under Inputf directory (line 102)
 ####################################################################################################################################################
 def main(temppatientfolder,inputfolder,outputfolder):
     global ROI_COUNT
@@ -131,7 +126,6 @@ def main(temppatientfolder,inputfolder,outputfolder):
     global FrameUID
     global ClassUID
     global patientname
-    global patientmedrecord
     global dob
     global pid
     global imageslice
@@ -179,43 +173,37 @@ def main(temppatientfolder,inputfolder,outputfolder):
     
     patientfolder = temppatientfolder 
     Inputf = inputfolder
+    Outputf = outputfolder
 
     print("Pinnacle tar folder path: " + Inputf)
-    print("Current patient folder name: " + patientfolder)
+    print("Current Patient: " + patientfolder)
+    if not os.path.exists(Outputf+"%s"%(patientfolder)):
+        os.makedirs(Outputf+"%s"%(patientfolder)) #Create folder for exported DICOM files if it does not already exist
 
+    print("Output location: " + Outputf) 
     
-    structsopinstuid = dicom.UID.generate_uid() 
+    structsopinstuid = pydicom.uid.generate_uid() 
     structds = createstructds() #creating dataset for structure file
     for j in range(0, 5000):
         morewastingtime = j
-    structseriesinstuid = dicom.UID.generate_uid()
+    structseriesinstuid = pydicom.uid.generate_uid()
     structds.ReferencedStudySequence = Sequence()
     
     structds = initds(structds)
+
     structds = readpatientinfo(structds)
-    
-    if Outputf_preference==1: # Sets the output folder path for all DICOM files
-        Outputf = outputfolder+"%s"%(patientname+patientmedrecord)
-    else:
-        Outputf = outputfolder+"%s"%(patientfolder)
-    if not os.path.exists(Outputf):
-        os.makedirs(Outputf) #Create folder for exported DICOM files if it does not already exist
-    print("Output location: " + Outputf) 
-
-
     readImageInfo() #Gets UID information for image files 
     structds = initds(structds) #initializes values like uids, creation time, manufacturer, values that are not patient dependent
     
     for i in range(0, 5000):
         timewaster = i
-    plansopinstuid = dicom.UID.generate_uid()
+    plansopinstuid = pydicom.uid.generate_uid()
     convertimages() #This function makes the image files usable (matches patient info that will go into other DICOM files). If image files do not exist this function calls createimagefiles function
     if flag_noimages:
         return
-    planseriesinstuid = dicom.UID.generate_uid()
+    planseriesinstuid = pydicom.uid.generate_uid()
 
     patient_position = getpatientsetup("Plan_%s"%planids[0])
-    print('Patient position: '+patient_position+'\n')
     if no_setup_file == True:
         return
 
@@ -240,7 +228,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence[0].RTReferencedSeriesSequence[0].ContourImageSequence[i-1].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.1'
         structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence[0].RTReferencedSeriesSequence[0].ContourImageSequence[i-1].ReferencedSOPInstanceUID = imageuid[i-1]
 
-    doseinstuid = dicom.UID.generate_uid()
+    doseinstuid = pydicom.uid.generate_uid()
 
     structds.ROIContourSequence = Sequence()
     structds.StructureSetROISequence = Sequence()
@@ -257,21 +245,18 @@ def main(temppatientfolder,inputfolder,outputfolder):
     structds.is_implicit_VR = True
     #structfilepath=outputfolder + patientfolder + "/" + structfilename
     #structds.save_as("structfilepath")
-    print("DICOM structure file being saved\n")
-    structds.save_as(Outputf + "/%s"%(structfilename))
-    doseseriesuid = dicom.UID.generate_uid()
+    print("Structure file being saved\n")
+    structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename))
+    doseseriesuid = pydicom.uid.generate_uid()
+    print("creating plan data structures \n")
     
     #############################################################################################
     # loop below creates plan files for each plan in directory (based on what is in the Patient file)
-    print("Plan count value is: "+str(plancount))
-
     for i in range(0, plancount): 
         
         planame = plannamelist[i]
-        print("Setting plan file name: "+planame)
-
         plandirect = "Plan_" + planids[i]
-        exec("plands_%s = createplanIDs(i)"%planids[i])
+        exec("plands_%s = createplands(i)"%planids[i])
         exec("plands_%s = planinit(plands_%s, planame, plandirect, i)"%(planids[i], planids[i]))
         exec("plands_%s = readtrial(plands_%s, plandirect, i)"%(planids[i], planids[i]))
         if no_beams == True:
@@ -285,7 +270,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         planfilename = 'RP.' + tempmetainstuid + '.dcm'
 
         print("Plan file name: " + planfilename)
-        planfilepath=Outputf + "/" + planfilename
+        planfilepath=Outputf + patientfolder + "/" + planfilename
 
         print(planfilepath)
         print("\n Saving plan file \n")
@@ -328,7 +313,6 @@ def initglobalvars():
     global descrip
     global plancount
     global plannamelist
-    global planimagesets
     global planids
     global randval
     global currentdate
@@ -399,7 +383,6 @@ def initglobalvars():
     plancount = 0
     plannamelist = []
     planids = []
-    planimagesets = []
     randval = randint(0,999)
     currentdate = time.strftime("%Y%m%d")
     currenttime = time.strftime("%H%M%S")
@@ -480,7 +463,7 @@ def convertimages():
     for file in os.listdir("%s%s/ImageSet_%s.DICOM"%(Inputf,patientfolder, imagesetnumber)):
         if file == '11026.1.img':
             continue
-        imageds = dicom.read_file("%s%s/ImageSet_%s.DICOM/%s"%(Inputf, patientfolder, imagesetnumber, file), force=True)
+        imageds = pydicom.read_file("%s%s/ImageSet_%s.DICOM/%s"%(Inputf, patientfolder, imagesetnumber, file), force=True)
         imageds.PatientsName = patientname
         imageds.PatientID = pid
         imageds.PatientsBirthDate = dob
@@ -502,11 +485,11 @@ def convertimages():
         preamble = getattr(imageds, "preamble", None)
         if not preamble:
             preamble = b'\x00'*128
-        currfile = DicomFile(Outputf+"/CT.%s.dcm"%(tempinstuid), 'wb')
+        currfile = DicomFile(Outputf+"%s/CT.%s.dcm"%(patientfolder, tempinstuid), 'wb')
         currfile.write(preamble)
         currfile.write(b'DICM')
-        dicom.write_file(Outputf+"/CT.%s.dcm"%(tempinstuid), imageds, False)
-        #print("Current image: ", file)
+        pydicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
+        print("Current image: ", file)
 ####################################################################################################################################################
 ####################################################################################################################################################                      
       
@@ -534,14 +517,8 @@ def createimagefiles():
     global posrefind
     global imagesetnumber
     global image_orientation
-
-    vv=int(imagesetnumber)    
-    if vv < 0:
-        print("\nError, Image set number is less than 0. There will be no images for this patient.\n")
-        return 
     
     currentpatientposition = getheaderinfo()
-
     if os.path.isfile("%s%s/ImageSet_%s.img"%(Inputf, patientfolder, imagesetnumber)):
         allframeslist = []
         pixel_array = np.fromfile("%s%s/ImageSet_%s.img"%(Inputf, patientfolder, imagesetnumber), dtype = np.short)
@@ -558,7 +535,6 @@ def createimagefiles():
     print("Length of frames list: " + str(len(allframeslist)))
     with open("%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber), 'rt', encoding='latin1') as f:
         image_info = f.readlines()
-        #print(image_info)
         curframe = 0
         for i, line in enumerate(image_info, 0):
             if "ImageInfo ={" in line:
@@ -569,9 +545,7 @@ def createimagefiles():
                 frameuid = re.findall(r'"([^"]*)"', image_info[i + 6])[0]
                 studyinstuid = re.findall(r'"([^"]*)"', image_info[i + 5])[0]
                 slicenum = int(re.findall(r"[-+]?\d*\.\d+|\d+", image_info[i + 3])[0])
-                filename="%s%s/ImageSet_%s.ImageSet"%(Inputf, patientfolder, imagesetnumber)
-                print(filename)
-                dateofscan, timeofscan = getdateandtime(filename)
+                dateofscan, timeofscan = getdateandtime()
                 
                 file_meta = Dataset()
                 file_meta.MediaStorageSOPClassUID = classuid
@@ -647,8 +621,8 @@ def createimagefiles():
                 imageuid.append(instuid)
                 image_orientation = ds.ImageOrientationPatient
                 posrefind = ds.PositionReferenceIndicator
-                print("Creating image: " + Outputf + "/CT.%s.dcm"%(instuid))
-                ds.save_as(Outputf + "/CT.%s.dcm"%(instuid))
+                print("Creating image: " + Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                ds.save_as(Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
                 curframe = curframe + 1
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -679,7 +653,7 @@ def getheaderinfo():
                 ypixdim = float((line.split(" ")[-1]).replace(';',''))*10
             if "x_start =" in line and "index" not in line:
                 xstart = float((line.split(" ")[-1]).replace(';',''))
-                #print("xstart = ", xstart)
+                print("xstart = ", xstart)
             if "y_start =" in line:
                 ystart = float((line.split(" ")[-1]).replace(';',''))
             if "z_dim =" in line:
@@ -702,8 +676,9 @@ def getheaderinfo():
 # Function: getdateandtime
 # Will read ImageSet_%s.ImageSet file to get date and time of CT image aquisition, only used in cases where image files have not been created
 ####################################################################################################################################################
-def getdateandtime(filename):
-    with open(filename, "rt", encoding='latin1') as g:
+def getdateandtime():
+    #with open("//Testfile", "rt", encoding='latin1') as g:
+    with open("%s%s/ImageSet_%s.ImageSet"%(Inputf, patientfolder, imagesetnumber), "rt", encoding='latin1') as g:
         for line in g:
             if "ScanTimeFromScanner" in line:
                 dateandtimestring = re.findall(r'"([^"]*)"', line)[0]
@@ -728,7 +703,7 @@ def readImageInfo():
     global patientfolder
     global randval
     global imagesetnumber
-    print("Path to image info file: " + "%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber))
+    #print("Path to image info file: " + "%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber))
     if not os.path.exists("%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber)):
         #print("Leaving readImageInfo before getting info")
         return
@@ -801,7 +776,7 @@ def getstructshift():
                 ypixdim = float((line.split(" ")[-1]).replace(';',''))
             if "x_start =" in line and "index" not in line:
                 xstart = float((line.split(" ")[-1]).replace(';',''))
-                #print("xstart = ", xstart)
+                print("xstart = ", xstart)
             if "y_start =" in line:
                 ystart = float((line.split(" ")[-1]).replace(';',''))
             if "z_dim =" in line:
@@ -812,27 +787,31 @@ def getstructshift():
                 zstart = float((line.split(" ")[-1]).replace(';',''))
     if patient_position == 'HFS':
         xshift = ((x_dim*xpixdim/2)+xstart)*10
-        #print("X shift = ", xshift)
+        print("X shift = ", xshift)
         yshift = -((y_dim*ypixdim/2)+ystart)*10
-        #print("Y shift = ", yshift)
+        print("Y shift = ", yshift)
         zshift = -((z_dim*zpixdim/2)+zstart)*10
     elif patient_position == 'HFP':
         xshift = -((x_dim*xpixdim/2)+xstart)*10
-        #print("X shift = ", xshift)
+
+        print("X shift = ", xshift)
+
+
         yshift = ((y_dim*ypixdim/2)+ystart)*10
-        #print("Y shift = ", yshift)
+
+        print("Y shift = ", yshift)
         zshift = -((z_dim*zpixdim/2)+zstart)*10
     elif patient_position == 'FFP':
         xshift = ((x_dim*xpixdim/2)+xstart)*10
-        #print("X shift = ", xshift)
+        print("X shift = ", xshift)
         yshift = ((y_dim*ypixdim/2)+ystart)*10
-        #print("Y shift = ", yshift)
+        print("Y shift = ", yshift)
         zshift = ((z_dim*zpixdim/2)+zstart)*10
     elif patient_position == 'FFS':
         xshift = -((x_dim*xpixdim/2)+xstart)*10
-        #print("X shift = ", xshift)
+        print("X shift = ", xshift)
         yshift = -((y_dim*ypixdim/2)+ystart)*10
-        #print("Y shift = ", yshift)
+        print("Y shift = ", yshift)
         zshift = ((z_dim*zpixdim/2)+zstart)*10
 
 ####################################################################################################################################################
@@ -840,12 +819,12 @@ def getstructshift():
 
 
 ####################################################################################################################################################
-# Function: createplanIDs()
+# Function: createplands()
 # creates a data structure for the rt plan file
 # similar to createstructds but different UIDs
 ####################################################################################################################################################
-def createplanIDs(plannumber):
-    #print("Creating plan ID data structure\n")
+def createplands(plannumber):
+    print("Creating plan Data Structure\n")
     global planfilename
     global plansopinstuid
     file_meta = Dataset()
@@ -863,7 +842,7 @@ def createplanIDs(plannumber):
 # also sets modality and data structure
 ####################################################################################################################################################
 def initds(ds):
-    print("Initializing DICOM RT Structure data elements")
+    print("initializing data structure\n")
     global imageuids    
     global SeriesUID
     global StudyInstanceUID
@@ -897,19 +876,17 @@ def initds(ds):
 # function to read in patient info from Patient text file
 ####################################################################################################################################################
 def readpatientinfo(ds):
-    print ("Reading patient information from text file: Patient \n")
+    print ("Reading patient information\n")
     mname = ""
     flag_first = True
     flag_time = True
     flag_stid = True
-    ImageSetcount=0
     global imageuids    
     global SeriesUID
     global StudyInstanceUID
     global FrameUID
     global ClassUID
     global patientname
-    global patientmedrecord
     global dob
     global pid
     global patient_sex
@@ -920,9 +897,7 @@ def readpatientinfo(ds):
     global sid
     global descrip
     global plancount
-    global Imagesetlist
     global plannamelist
-    global planimagesets
     global patientfolder
     global lname
     global fname
@@ -949,7 +924,7 @@ def readpatientinfo(ds):
                 mname = mname.replace("\\", '')
                 mname = mname.replace('/', '')
             if "MedicalRecordNumber =" in line:
-                patientmedrecord = re.findall(r'"([^"]*)"', line)[0] 
+                medrecnum = re.findall(r'"([^"]*)"', line)[0] 
             if "ReferringPhysician = " in line:
                 refphys = re.findall(r'"([^"]*)"', line)[0]
                 ds.ReferringPhysiciansName = refphys
@@ -984,25 +959,16 @@ def readpatientinfo(ds):
                 ds.PatientsBirthDate = dob
             if "ImageSetList ={" in line:
                 flag_first = False
-            if "  ImageName =" in line:
-            	ImageSetcount = ImageSetcount + 1
-            	Imagename=re.findall(r'"([^"]*)"', line)[0]
-            	Imagesetlist.append(Imagename)
-            	print("Image name: " + Imagename)
             if "PlanName = " in line:
                 plancount = plancount + 1
                 plannamelist.append(re.findall(r'"([^"]*)"', line)[0])
                 ds.StructureSetLabel = plannamelist[plancount - 1]
             if "PrimaryCTImageSetID =" in line:
-                #print(line)
-                imagesetnumber =re.findall(r'-?\d+\.?\d*',line)[0]
+                imagesetnumber = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
                 print("Image set number: " + imagesetnumber)
-                planimagesets.append(imagesetnumber)
             if "    PlanID =" in line:
-                planIDnumber = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]        	
-                planids.append(planIDnumber)
-                print("Plan ID : " + planIDnumber)
-            if "    StudyID = " in line:
+                planids.append(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
+            if "    StudyID = " in line and flag_stid:
                 sid = re.findall(r'"([^"]*)"', line)[0]
                 print ("Study id: ", sid)
                 ds.StudyID = sid
@@ -1037,21 +1003,17 @@ def readpatientinfo(ds):
     ds.SeriesNumber = '1'
     patientname = lname + "^" + fname + "^" + mname + "^"
     ds.PatientsName = patientname
-    print('\nPatient name: '+ patientname)
-    print('Patient ID: '+ ds.PatientID)
-    print('Patient medrecord: '+ patientmedrecord)
-    print('Number of plan folders: '+str(plancount))
     return ds
 ####################################################################################################################################################
 ####################################################################################################################################################
 
 
 ####################################################################################################################################################
-# Function that read in the first ROIs (reference points) from plan.Points
+#  Function that read in the first ROIs (reference points) from plan.Points
 # Takes in data structure
 ####################################################################################################################################################
 def readpoints(ds, planfolder):
-    print("Reading in ROI point values from plan.Points")
+    print("Reading in the points\n")
     global ROI_COUNT 
     global SeriesUID
     global StudyInstanceUID
@@ -1123,7 +1085,7 @@ def readpoints(ds, planfolder):
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence.append(Contour1)
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourData = refpoint
                 point_values.append(refpoint)
-                #print("refpoint:", refpoint)
+                print("refpoint:", refpoint)
                 #if isocenter == []:
                 #   isocenter = refpoint
                 if "Iso" in refptname or "isocenter" in refptname or "isocentre" in refptname:
@@ -1132,31 +1094,28 @@ def readpoints(ds, planfolder):
                     ctcenter = refpoint
                 if "drp" in refptname or "DRP" in refptname:
                     doserefpt = refpoint
-                #print("isocenter:", isocenter)
+                print("isocenter:", isocenter)
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourGeometricType = 'POINT'
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].NumberofContourPoints = 1
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence = Sequence()
                 ContourImage1 = Dataset()
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence.append(ContourImage1)
-                
-                #if there are no images within this patient
-                if len(imageslice) >1:
-                    closestvalue = abs(float(imageslice[0]) - float(refpoint[-1]))
-                    closestlocation = 0
-                    match = False
-                    for i, s in enumerate(imageslice,0):
-                        #print("finding corresponding image\n")
-                        if abs(float(s) - (float(refpoint[-1]))) < 0.01: #making this the tolerance
-                            ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
-                            ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[i]
-                            match = True
-                        else:
-                            if abs(float(s) - (float(refpoint[-1]))) < closestvalue:
-                                closestvalue = abs(float(s) - (float(refpoint[-1])))
-                                closestlocation = i
-                    if not match:
+                closestvalue = abs(float(imageslice[0]) - float(refpoint[-1]))
+                closestlocation = 0
+                match = False
+                for i, s in enumerate(imageslice,0):
+                    #print("finding corresponding image\n")
+                    if abs(float(s) - (float(refpoint[-1]))) < 0.01: #making this the tolerance
                         ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
-                        ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[closestlocation]
+                        ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[i]
+                        match = True
+                    else:
+                        if abs(float(s) - (float(refpoint[-1]))) < closestvalue:
+                            closestvalue = abs(float(s) - (float(refpoint[-1])))
+                            closestlocation = i
+                if not match:
+                    ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
+                    ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence[0].ReferencedSOPInstanceUID = imageuid[closestlocation]
 
     if len(isocenter) < 2:
         isocenter = ctcenter
@@ -1182,14 +1141,14 @@ def readpoints(ds, planfolder):
             if  len(ds.ROIContourSequence) > 0: 
                 isocenter = point_values[0] # setting to first point if isocenter or ct center not found
                 #print("setting iso to actual value: " + str(isocenter))
-    #print("isocenter before loop to apply shifts to contour sequence points: " + str(isocenter))
+    print("isocenter before loop to apply shifts to contour sequence points: " + str(isocenter))
     for enteredpoints in ds.ROIContourSequence:
         #print("In loop applying shifts: isocenter:" + str(isocenter) )
         enteredpoints.ContourSequence[0].ContourData[0] = str(float(enteredpoints.ContourSequence[0].ContourData[0]) - xshift)
         enteredpoints.ContourSequence[0].ContourData[1] = str(float(enteredpoints.ContourSequence[0].ContourData[1]) - yshift)
         #enteredpoints.ContourSequence[0].ContourData[2] = str(float(enteredpoints.ContourSequence[0].ContourData[2]) - float(isocenter[2]))  
         #print("bottom of loop applying shifts isocenter:" + str(isocenter))  
-    #print("end of read points isocenter:" + str(isocenter))
+    print("end of read points isocenter:" + str(isocenter))
     return ds            
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -1200,7 +1159,7 @@ def readpoints(ds, planfolder):
 # will take in data structure.
 ####################################################################################################################################################
 def readroi(ds, planfolder):
-    print("Reading in ROI names from plan.roi")
+    print("Reading in roi file\n")
     global ROI_COUNT   
     global SeriesUID
     global StudyInstanceUID
@@ -1527,7 +1486,8 @@ def readtrial(ds, planfolder, plannumber):
             elif int(current_dosefile_num) < 100:
                 current_dosefile_num = "0" + current_dosefile_num 
             beamdosefiles.append(current_dosefile_num)
-            print('File to read: plan.Trail.binary.'+str(current_dosefile_num))
+            print('Reading file: plan.Trail.binary.'+str(current_dosefile_num))
+            print('Number of dose files read: '+str(len(beamdosefiles)))
         if "Beam ={" in line and 'Proton' not in line:
             #print("Line that indicates beam information\n")
             #new beam
@@ -1576,7 +1536,7 @@ def readtrial(ds, planfolder, plannumber):
                 if nameofrefpt == name:
                     doserefpt = point_values[i]
             if doserefpt != []:
-                #print("Dose reference point: " + str([float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])]))
+                print("Dose reference point: " + str([float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])]))
                 ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDoseSpecificationPoint = [float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])] #Not sure if I need shifts here or not...?
             else:
                 print("No dose reference point, setting to isocenter: " + str([float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]))
@@ -1606,29 +1566,29 @@ def readtrial(ds, planfolder, plannumber):
             sad = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])*10
             #ds.BeamSequence[beamcount - 1].SourceAxisDistance = sad
         if "PrescriptionDose =" in line and MUlineflag == True:
-            prescripdose = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
+            prescripdose =  float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
             normdose = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 15])[0])
-            ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDose = prescripdose/100
-            OFc = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 17])[0]) # OFc value added by Achraf Touzani 2018
+            OFc = float(re.findall(r"[-+]?\d*\.\d+|\d+", all_lines[linenum + 17])[0])
+            # OFc value added by Achraf Touzani 2018
+            if normdose == 0:
+                beammu = 0 
+                continue
+            ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDose = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/100
             if beamenergies[beamcount-1] == '6': 
-                PDD=PDD6MV
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD6MV*OFc)
             elif beamenergies[beamcount-1] == '15': 
-                PDD=PDD15MV
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD15MV*OFc)
             elif beamenergies[beamcount-1] == '16':
-                PDD=PDD16MV
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD16MV*OFc)
             elif beamenergies[beamcount-1] == '10':
-                PDD=PDD10MV
+                beammu = float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])/(normdose*PDD10MV*OFc)
             else:
-                print("\n \n Error, beam energy not 6, 10, 15 or 16 MV\n\n")
-                PDD=0.0
-            if normdose == 0.0 or PDD==0.0 or OFc==0.0:
-            	beammu =0.0
-            else:
-                beammu = prescripdose/(normdose*PDD*OFc)
-            ssss= "Beam %3i, beam energy : %s, prescription dose : %f, normalization dose : %f, collimator factor : %f, PDD : %f, MU : %f" %(beamcount, beamenergies[beamcount-1],prescripdose,normdose,OFc,PDD,beammu)
-            print(ssss)
+                print("\n \n Error, beam energy not 6, 10, 15 or 16 MV")
+                return
+            print("Beam MU: " + str(beammu))
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
             beamdoses.append(beammu)
+
             MUlineflag = False
             #Figure out what to do with BeamDose
         if "MachineNameAndVersion =" in line and nomachinename:
@@ -1653,13 +1613,13 @@ def readtrial(ds, planfolder, plannumber):
         if "  Couch =" in line and ctrlptlist:
             psupportangle = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
         if "     WedgeName = " in line and ctrlptlist:
-            #print("wedge name found")
+            print("wedge name found")
             if re.findall(r'"([^"]*)"', line)[0] == 'No Wedge' or re.findall(r'"([^"]*)"', line)[0] == "":
                 wedgeflag = False
-                #print("Wedge is no name")
+                print("Wedge is no name")
                 numwedges = 0 
             elif "edw" in re.findall(r'"([^"]*)"', line)[0] or "EDW" in re.findall(r'"([^"]*)"', line)[0]:
-                #print("Wedge present")
+                print("Wedge present")
                 wedgetype = "DYNAMIC"
                 wedgeflag = True
                 numwedges = 1
@@ -1672,9 +1632,9 @@ def readtrial(ds, planfolder, plannumber):
                 elif "WedgeTopToBottom" == wedgeinorout:
                     wedgename = re.findall(r'"([^"]*)"', line)[0].upper() +  wedgeangle + "OUT"
                     wedgeorientation = '180'
-                #print("Wedge name = ", wedgename)
+                print("Wedge name = ", wedgename)
             elif "UP" in re.findall(r'"([^"]*)"', line)[0]:
-                #print("Wedge present")
+                print("Wedge present")
                 wedgetype = "STANDARD"
                 wedgeflag = True
                 numwedges = 1
@@ -1701,7 +1661,7 @@ def readtrial(ds, planfolder, plannumber):
                 elif "WedgeBottomToTop" == wedgeinorout:
                     wedgename = "W" +  str(int(wedgeangle)) + "IN" + numberinname# + "U"
                     wedgeorientation = '0' # temporary until I find out what to put here
-                #print("Wedge name = ", wedgename)
+                print("Wedge name = ", wedgename)
         if "LeftJawPosition" in line and x1 == "":
             x1 = str(-float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])*10)
             #print("X jaw 1:", x1, "\n")
@@ -1818,7 +1778,7 @@ def readtrial(ds, planfolder, plannumber):
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].BeamLimitingDeviceRotationDirection = 'NONE'
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportAngle = psupportangle
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportRotationDirection = 'NONE'
-                    #print("Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
+                    print("Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].IsocenterPosition = [float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].GantryRotationDirection = gantryrotdir
                 else:
@@ -1907,7 +1867,7 @@ def readtrial(ds, planfolder, plannumber):
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].BeamLimitingDeviceRotationDirection = 'NONE'
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportAngle = psupportangle
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportRotationDirection = 'NONE'
-                    #print("No step-and-shoot Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
+                    print("No step-and-shoot Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].IsocenterPosition = [float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].GantryRotationDirection = gantryrotdir
                     ds.BeamSequence[beamcount - 1].NumberOfWedges = numwedges
@@ -1941,22 +1901,18 @@ def readtrial(ds, planfolder, plannumber):
             wedgeflag = False
             numwedges = 0
             beginbeam = False
-    print("Number of dose files to read: "+str(len(beamdosefiles)))
     ds.FractionGroupSequence[0].FractionGroupNumber = 1
     ds.FractionGroupSequence[0].NumberOfFractionsPlanned = numfracs
     ds.FractionGroupSequence[0].NumberOfBeams = beamcount
     ds.FractionGroupSequence[0].NumberOfBrachyApplicationSetups = '0'
     summed_pixel_values = []
     flag_nobinaryfile = False
-    #print("beamcount value : "+str(beamcount))
-    #print("beamdosefiles length of array : "+str(len(beamdosefiles)))
-    #print("beamdoses lenght of array : "+str(len(beamdoses)))
     for currentbeam in range(0,beamcount):
         exec("PatientSetup%d = Dataset()"%(currentbeam+1))
         exec("ds.PatientSetupSequence.append(PatientSetup%d)"%(currentbeam+1))
         ds.PatientSetupSequence[currentbeam].PatientPosition = patient_position #get this from patient setup file
         ds.PatientSetupSequence[currentbeam].PatientSetupNumber = (currentbeam + 1)
-        #print("creatertdose (plannumber: "+str(plannumber)+"  planfolder :"+planfolder+"  currentbeam: "+str(currentbeam + 1) +"  dosefile: "+str(beamdosefiles[currentbeam])+"  beamdose: "+str(beamdoses[currentbeam])+"  numberoffracs: "+str(numfracs))
+        
         temp_pixelvalues, doseds = creatertdose(plannumber, planfolder, currentbeam + 1, beamdosefiles[currentbeam], beamdoses[currentbeam], numfracs)
         doseds.file_meta.MediaStorageSOPInstanceUID = doseinstuid + "." + str(plannumber)
         if flag_nobinaryfile:
@@ -2001,7 +1957,7 @@ def readtrial(ds, planfolder, plannumber):
         ofile.close()
         dosefilename="RD."+doseds.file_meta.MediaStorageSOPInstanceUID+".dcm"
         print("\n Creating Dose file named : %s \n"%(dosefilename))
-        doseds.save_as(Outputf+"/%s"%(dosefilename))
+        doseds.save_as(Outputf+"%s/%s"%(patientfolder,dosefilename))
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence = Sequence()
     #ReferencedDoseReference2 = Dataset()
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence.append(ReferencedDoseReference2)
@@ -2126,7 +2082,7 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
     ds.GridFrameOffsetVector = frameoffsetvect
     pixeldatallist = []
     randomcounter = 0
-    #print("Binary file: " + "plan.Trial.binary.%s"%binarynum)
+    print("Binary file: " + "plan.Trial.binary.%s"%binarynum)
     if os.path.isfile("%s%s/%s/plan.Trial.binary.%s"%(Inputf, patientfolder, planfolder, binarynum)):
         with open("%s%s/%s/plan.Trial.binary.%s"%(Inputf,patientfolder, planfolder, binarynum), "rb") as binary_file:
             data_element = binary_file.read(4)
@@ -2142,8 +2098,8 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
                 data_element = binary_file.read(4)
     else:
         flag_nobinaryfile = True
-    #print("Length of Pixel Data list: " + str(len(pixeldatallist)))
-    #print("Z dim: " + str(dosezdim) + "       X dim: " + str(dosexdim)  + "       Y dim: " + str(doseydim))
+    print("Length of Pixel Data list: " + str(len(pixeldatallist)))
+    print("Z dim: " + str(dosezdim) + "       X dim: " + str(dosexdim)  + "       Y dim: " + str(doseydim))
     if len(pixeldatallist) == 0: #if the binary file is empty, treat as if it does not exist
         flag_nobinaryfile = True
     main_pix_array = []
