@@ -22,12 +22,12 @@ import time #used for getting current date and time for file
 import re #used for isolated values from strings
 import sys
 import os.path
-import dicom
+import pydicom
 import numpy as np
-from dicom.dataset import Dataset, FileDataset
-from dicom.sequence import Sequence
-from dicom.filebase import DicomFile
-import dicom.UID
+from pydicom.dataset import Dataset, FileDataset
+from pydicom.sequence import Sequence
+from pydicom.filebase import DicomFile
+import pydicom.uid
 import os
 import struct
 from random import randint
@@ -182,11 +182,11 @@ def main(temppatientfolder,inputfolder,outputfolder):
 
     print("Output location: " + Outputf) 
     
-    structsopinstuid = dicom.UID.generate_uid() 
+    structsopinstuid = pydicom.uid.generate_uid() 
     structds = createstructds() #creating dataset for structure file
     for j in range(0, 5000):
         morewastingtime = j
-    structseriesinstuid = dicom.UID.generate_uid()
+    structseriesinstuid = pydicom.uid.generate_uid()
     structds.ReferencedStudySequence = Sequence()
     
     structds = initds(structds)
@@ -197,11 +197,11 @@ def main(temppatientfolder,inputfolder,outputfolder):
     
     for i in range(0, 5000):
         timewaster = i
-    plansopinstuid = dicom.UID.generate_uid()
+    plansopinstuid = pydicom.uid.generate_uid()
     convertimages() #This function makes the image files usable (matches patient info that will go into other DICOM files). If image files do not exist this function calls createimagefiles function
     if flag_noimages:
         return
-    planseriesinstuid = dicom.UID.generate_uid()
+    planseriesinstuid = pydicom.uid.generate_uid()
 
     patient_position = getpatientsetup("Plan_%s"%planids[0])
     if no_setup_file == True:
@@ -228,7 +228,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence[0].RTReferencedSeriesSequence[0].ContourImageSequence[i-1].ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.1'
         structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence[0].RTReferencedSeriesSequence[0].ContourImageSequence[i-1].ReferencedSOPInstanceUID = imageuid[i-1]
 
-    doseinstuid = dicom.UID.generate_uid()
+    doseinstuid = pydicom.uid.generate_uid()
 
     structds.ROIContourSequence = Sequence()
     structds.StructureSetROISequence = Sequence()
@@ -247,7 +247,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     #structds.save_as("structfilepath")
     print("Structure file being saved\n")
     structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename))
-    doseseriesuid = dicom.UID.generate_uid()
+    doseseriesuid = pydicom.uid.generate_uid()
     print("creating plan data structures \n")
     
     #############################################################################################
@@ -463,7 +463,7 @@ def convertimages():
     for file in os.listdir("%s%s/ImageSet_%s.DICOM"%(Inputf,patientfolder, imagesetnumber)):
         if file == '11026.1.img':
             continue
-        imageds = dicom.read_file("%s%s/ImageSet_%s.DICOM/%s"%(Inputf, patientfolder, imagesetnumber, file), force=True)
+        imageds = pydicom.read_file("%s%s/ImageSet_%s.DICOM/%s"%(Inputf, patientfolder, imagesetnumber, file), force=True)
         imageds.PatientsName = patientname
         imageds.PatientID = pid
         imageds.PatientsBirthDate = dob
@@ -488,7 +488,7 @@ def convertimages():
         currfile = DicomFile(Outputf+"%s/CT.%s.dcm"%(patientfolder, tempinstuid), 'wb')
         currfile.write(preamble)
         currfile.write(b'DICM')
-        dicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
+        pydicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
         print("Current image: ", file)
 ####################################################################################################################################################
 ####################################################################################################################################################                      
@@ -677,7 +677,8 @@ def getheaderinfo():
 # Will read ImageSet_%s.ImageSet file to get date and time of CT image aquisition, only used in cases where image files have not been created
 ####################################################################################################################################################
 def getdateandtime():
-    with open("//Testfile", "rt", encoding='latin1') as g:
+    #with open("//Testfile", "rt", encoding='latin1') as g:
+    with open("%s%s/ImageSet_%s.ImageSet"%(Inputf, patientfolder, imagesetnumber), "rt", encoding='latin1') as g:
         for line in g:
             if "ScanTimeFromScanner" in line:
                 dateandtimestring = re.findall(r'"([^"]*)"', line)[0]
