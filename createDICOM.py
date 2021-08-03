@@ -31,7 +31,7 @@ import pydicom.uid
 import os
 import struct
 from random import randint
-from PIL import Image
+#from PIL import Image
 
 ####################################################################################################################################################
 #  Global Variables
@@ -167,10 +167,17 @@ def main(temppatientfolder,inputfolder,outputfolder):
     global no_beams
     global softwarev
     
+    from pydicom import config
+
+    config.INVALID_KEYWORD_BEHAVIOR = "RAISE"
+
     initglobalvars()  # First step of the main function is to call the initglobalvars variable to reset everything in case this function is being used in a loop. (see allpatientloop.py) 
     #print("Input Patient Folder:")
     #patientfolder = raw_input("> ")
     
+
+
+
     patientfolder = temppatientfolder 
     Inputf = inputfolder
     Outputf = outputfolder
@@ -189,7 +196,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     structseriesinstuid = pydicom.uid.generate_uid()
     structds.ReferencedStudySequence = Sequence()
     
-    structds = initds(structds)
+    #structds = initds(structds)
 
     structds = readpatientinfo(structds)
     readImageInfo() #Gets UID information for image files 
@@ -210,7 +217,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
     structds.ReferencedFrameOfReferenceSequence = Sequence()
     ReferencedFrameofReference1 = Dataset()
     structds.ReferencedFrameOfReferenceSequence.append(ReferencedFrameofReference1)
-    structds.ReferencedFrameOfReferenceSequence[0].FrameofReferenceUID = FrameUID
+    structds.ReferencedFrameOfReferenceSequence[0].FrameOfReferenceUID = FrameUID
     structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence = Sequence()
     RTReferencedStudy1 = Dataset()
     structds.ReferencedFrameOfReferenceSequence[0].RTReferencedStudySequence.append(RTReferencedStudy1)
@@ -245,10 +252,13 @@ def main(temppatientfolder,inputfolder,outputfolder):
     structds.is_implicit_VR = True
     #structfilepath=outputfolder + patientfolder + "/" + structfilename
     #structds.save_as("structfilepath")
-    print("Structure file being saved\n")
-    structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename))
+    #print("Structure file being saved\n")
+    structds.save_as(Outputf + "/%s/%s"%(patientfolder, structfilename), write_like_original=False )
+    
+    #print(structds)
+    #exit()
     doseseriesuid = pydicom.uid.generate_uid()
-    print("creating plan data structures \n")
+    #print("creating plan data structures \n")
     
     #############################################################################################
     # loop below creates plan files for each plan in directory (based on what is in the Patient file)
@@ -261,7 +271,7 @@ def main(temppatientfolder,inputfolder,outputfolder):
         exec("plands_%s = readtrial(plands_%s, plandirect, i)"%(planids[i], planids[i]))
         if no_beams == True:
             continue
-        print("Setting plan file name:")
+        #print("Setting plan file name:")
         
         #exec("tempmetainstuid = plands_%s.file_meta.MediaStorageSOPInstanceUID"%planids[i])
 
@@ -269,13 +279,14 @@ def main(temppatientfolder,inputfolder,outputfolder):
 
         planfilename = 'RP.' + tempmetainstuid + '.dcm'
 
-        print("Plan file name: " + planfilename)
+        #print("Plan file name: " + planfilename)
         planfilepath=Outputf + patientfolder + "/" + planfilename
 
-        print(planfilepath)
-        print("\n Saving plan file \n")
+        #print(planfilepath)
+        #print("\n Saving plan file \n")
         exec("plands_%s.save_as(planfilepath)"%(planids[i]))
-    #os.rename(Outputf+'%s'% patientfolder, Outputf+'%s,%s,%s'%(lname,fname,pid))
+
+    os.rename(Outputf+'%s'% patientfolder, Outputf+'%s,%s,%s'%(lname,fname,pid))
     #print("\n \n Current software versions found: \n")
     #for ver in softwarev:
         #print(ver)
@@ -439,7 +450,7 @@ def initglobalvars():
 #    and UID. This function needs to be run, even if image files already converted
 ####################################################################################################################################################
 def convertimages():
-    print("Converting image patient name, birthdate and id to match pinnacle\n")
+    #print("Converting image patient name, birthdate and id to match pinnacle\n")
     global patientname
     global pid
     global dob
@@ -457,16 +468,16 @@ def convertimages():
     if not os.path.exists("%s%s/ImageSet_%s.DICOM"%(Inputf,patientfolder, imagesetnumber)):
         #Image set folder not found, need to ignore patient
         #Will want to call a function to be written that will create image set files from the condensed pixel data file
-        print("Image files do not exist. Creating image files")
+        #print("Image files do not exist. Creating image files")
         createimagefiles()
         return
     for file in os.listdir("%s%s/ImageSet_%s.DICOM"%(Inputf,patientfolder, imagesetnumber)):
         if file == '11026.1.img':
             continue
         imageds = pydicom.read_file("%s%s/ImageSet_%s.DICOM/%s"%(Inputf, patientfolder, imagesetnumber, file), force=True)
-        imageds.PatientsName = patientname
+        imageds.PatientName = patientname
         imageds.PatientID = pid
-        imageds.PatientsBirthDate = dob
+        imageds.PatientBirthDate = dob
         imageslice.append(imageds.SliceLocation)
         imageuid.append(imageds.SOPInstanceUID)
         image_orientation = imageds.ImageOrientationPatient
@@ -489,7 +500,8 @@ def convertimages():
         currfile.write(preamble)
         currfile.write(b'DICM')
         pydicom.write_file(Outputf+"%s/CT.%s.dcm"%(patientfolder,tempinstuid), imageds, False)
-        print("Current image: ", file)
+        #print("Current image: ", file)
+        #print(imageds)
 ####################################################################################################################################################
 ####################################################################################################################################################                      
       
@@ -532,7 +544,7 @@ def createimagefiles():
                 frame_array = np.append(frame_array, temprow)
             allframeslist.append(frame_array)
 """
-    print("Length of frames list: " + str(len(allframeslist)))
+    #print("Length of frames list: " + str(len(allframeslist)))
     with open("%s%s/ImageSet_%s.ImageInfo"%(Inputf, patientfolder, imagesetnumber), 'rt', encoding='latin1') as f:
         image_info = f.readlines()
         curframe = 0
@@ -566,9 +578,9 @@ def createimagefiles():
                 ds.Modality = "CT" # Also should come from header file, but not always present
                 ds.Manufacturer = "GE MEDICAL SYSTEMS" #This should come from Manufacturer in header, but for some patients it isn't set?? 
                 ds.StationName = "CT"
-                ds.PatientsName = patientname
+                ds.PatientName = patientname
                 ds.PatientID = pid
-                ds.PatientsBirthDate = dob
+                ds.PatientBirthDate = dob
                 ds.BitsAllocated = 16
                 ds.BitsStored = 16
                 ds.HighBit = 15
@@ -621,7 +633,8 @@ def createimagefiles():
                 imageuid.append(instuid)
                 image_orientation = ds.ImageOrientationPatient
                 posrefind = ds.PositionReferenceIndicator
-                print("Creating image: " + Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                #print("Creating image: " + Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
+                #ds.save_as(Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid),write_like_original=False)
                 ds.save_as(Outputf + "%s/CT.%s.dcm"%(patientfolder, instuid))
                 curframe = curframe + 1
 ####################################################################################################################################################
@@ -695,7 +708,7 @@ def getdateandtime():
 #    Saves the general UIDs as global variables 
 ####################################################################################################################################################
 def readImageInfo():
-    print("Reading image information for all image files\n")
+    #print("Reading image information for all image files\n")
     global SeriesUID
     global StudyInstanceUID
     global FrameUID
@@ -736,18 +749,24 @@ def readImageInfo():
 # returns data structure ds
 ####################################################################################################################################################
 def createstructds():
-    print("Creating Data structure")
+    #print("Creating Data structure")
     global structfilename
     global structsopinstuid
     # Populate required values for file meta information
     file_meta = Dataset()
+    #file_meta.add_new(0x00020000, 'UL', 184)
+    #file_meta.add_new(0x00020001, 'OB', b'\x00'*2)
     file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.481.3' #RT Structure Set Storage
     file_meta.MediaStorageSOPInstanceUID = structsopinstuid
     structfilename="RS."+structsopinstuid+".dcm"
     file_meta.ImplementationClassUID = gImplementationClassUID #this value remains static since implementation for creating file is the same
+    #file_meta.add_new(0x00020013, 'SH', "DCTOOL100")
+    #print(file_meta.elements)
+    #exit()
+
     # Create the FileDataset instance (initially no data elements, but file_meta supplied)
     ds = FileDataset(structfilename, {}, file_meta=file_meta, preamble=b'\x00'*128)
-    #print(file_meta.preamble)
+    #print(ds)
     return ds
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -824,13 +843,14 @@ def getstructshift():
 # similar to createstructds but different UIDs
 ####################################################################################################################################################
 def createplands(plannumber):
-    print("Creating plan Data Structure\n")
+    #print("Creating plan Data Structure\n")
     global planfilename
     global plansopinstuid
     file_meta = Dataset()
     file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.481.5' #RT Plan Storage
     file_meta.MediaStorageSOPInstanceUID = plansopinstuid + "." + str(plannumber)
     file_meta.ImplementationClassUID = gImplementationClassUID #this value remains static since implementation for creating file is the same
+
     ds = FileDataset(planfilename, {}, file_meta=file_meta, preamble=b'\x00'*128)
     return ds
 ####################################################################################################################################################
@@ -842,7 +862,7 @@ def createplands(plannumber):
 # also sets modality and data structure
 ####################################################################################################################################################
 def initds(ds):
-    print("initializing data structure\n")
+    #print("initializing data structure\n")
     global imageuids    
     global SeriesUID
     global StudyInstanceUID
@@ -850,12 +870,22 @@ def initds(ds):
     global ClassUID
     global structsopinstuid
     global structseriesinstuid
-    ds.SpecificCharacterSet = 'ISO_IR 100' # not sure what I want here, going off of template dicom file
+    global patientname
+    global patient_sex
+    global dob
+
+
+    ds.SpecificCharacterSet = "ISO_IR 100" # not sure what I want here, going off of template dicom file
     ds.InstanceCreationDate = time.strftime("%Y%m%d")
     ds.InstanceCreationTime = time.strftime("%H%M%S")
     ds.SOPClassUID = '1.2.840.10008.5.1.4.1.1.481.3'
     ds.SOPInstanceUID = structsopinstuid
     ds.Modality = 'RTSTRUCT'
+    #print(patientname)
+    ds.PatientName=patientname
+    ds.PatientBirthDate = dob
+    ds.PatientID = pid
+    ds.PatientSex = patient_sex
     ds.AccessionNumber = ""
     ds.Manufacturer = Manufacturer #from sample dicom file, maybe should change?
     ds.StationName = "adacp3u7" # not sure where to get information for this element can find this and read in from 
@@ -865,8 +895,11 @@ def initds(ds):
     ds.ReferencedStudySequence[0].ReferencedSOPClassUID = '1.2.840.10008.3.1.2.3.2' #Study Component Management SOP Class (chosen from template)
     ds.ReferencedStudySequence[0].ReferencedSOPInstanceUID = StudyInstanceUID
     ds.StudyInstanceUID = StudyInstanceUID
-    print("Setting structure file study instance: " + str(StudyInstanceUID))
+    #print("Setting structure file study instance: " + str(StudyInstanceUID))
     ds.SeriesInstanceUID = structseriesinstuid
+    #print(patientname)
+    #print(ds)
+    #exit()
     return ds
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -876,7 +909,7 @@ def initds(ds):
 # function to read in patient info from Patient text file
 ####################################################################################################################################################
 def readpatientinfo(ds):
-    print ("Reading patient information\n")
+    #print ("Reading patient information\n")
     mname = ""
     flag_first = True
     flag_time = True
@@ -927,7 +960,7 @@ def readpatientinfo(ds):
                 medrecnum = re.findall(r'"([^"]*)"', line)[0] 
             if "ReferringPhysician = " in line:
                 refphys = re.findall(r'"([^"]*)"', line)[0]
-                ds.ReferringPhysiciansName = refphys
+                ds.ReferringPhysicianName = refphys
             if "RadiationOncologist = " in line:
                 physician = re.findall(r'"([^"]*)"', line)[0]
                 ds.PhysiciansOfRecord = physician
@@ -940,7 +973,7 @@ def readpatientinfo(ds):
                     patient_sex = 'M'
                 elif "Female" in gen:
                     patient_sex = 'F'
-                ds.PatientsSex = patient_sex
+                ds.PatientSex = patient_sex
             if "DateOfBirth =" in line:
                 dobstr = re.findall(r'"([^"]*)"', line) #gets birthday string with numbers and dashes
                 if '-' in dobstr[0]:
@@ -956,7 +989,7 @@ def readpatientinfo(ds):
                     if num == dob_list[-1] and len(num) == 2:
                         num = "19" + num
                     dob = dob + num
-                ds.PatientsBirthDate = dob
+                ds.PatientBirthDate = dob
             if "ImageSetList ={" in line:
                 flag_first = False
             if "PlanName = " in line:
@@ -965,12 +998,12 @@ def readpatientinfo(ds):
                 ds.StructureSetLabel = plannamelist[plancount - 1]
             if "PrimaryCTImageSetID =" in line:
                 imagesetnumber = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
-                print("Image set number: " + imagesetnumber)
+                #print("Image set number: " + imagesetnumber)
             if "    PlanID =" in line:
                 planids.append(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])
             if "    StudyID = " in line and flag_stid:
                 sid = re.findall(r'"([^"]*)"', line)[0]
-                print ("Study id: ", sid)
+                #print ("Study id: ", sid)
                 ds.StudyID = sid
                 flag_stid = False
             if "WriteTimeStamp = " in line and flag_time:
@@ -987,7 +1020,7 @@ def readpatientinfo(ds):
                 flag_time = False
             if "ToolType =" in line:
                 model = re.findall(r'"([^"]*)"', line)[0]
-                ds.ManufacturersModelName = model
+                ds.ManufacturerModelName = model
             if "PinnacleVersionDescription" in line:
                 softwarev = re.findall(r'"([^"]*)"', line)[0]
                 ds.SoftwareVersions = softwarev
@@ -1002,7 +1035,8 @@ def readpatientinfo(ds):
     ds.StructureSetName = 'POIandROI'
     ds.SeriesNumber = '1'
     patientname = lname + "^" + fname + "^" + mname + "^"
-    ds.PatientsName = patientname
+    ds.PatientName = patientname
+    #print(ds)
     return ds
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -1013,7 +1047,7 @@ def readpatientinfo(ds):
 # Takes in data structure
 ####################################################################################################################################################
 def readpoints(ds, planfolder):
-    print("Reading in the points\n")
+    #print("Reading in the points\n")
     global ROI_COUNT 
     global SeriesUID
     global StudyInstanceUID
@@ -1049,7 +1083,7 @@ def readpoints(ds, planfolder):
                 point_names.append(refptname)
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence = Sequence()
                 ds.StructureSetROISequence[ROI_COUNT - 1].ROIGenerationAlgorithm = 'SEMIAUTOMATIC' #Not sure what this is for, just basing off template, should look into further
-                ds.StructureSetROISequence[ROI_COUNT - 1].ReferencedFrameofReferenceUID = FrameUID
+                ds.StructureSetROISequence[ROI_COUNT - 1].ReferencedFrameOfReferenceUID = FrameUID
                 ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[0]
                 refpoint = []
             if "XCoord =" in line:
@@ -1085,7 +1119,7 @@ def readpoints(ds, planfolder):
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence.append(Contour1)
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourData = refpoint
                 point_values.append(refpoint)
-                print("refpoint:", refpoint)
+                #print("refpoint:", refpoint)
                 #if isocenter == []:
                 #   isocenter = refpoint
                 if "Iso" in refptname or "isocenter" in refptname or "isocentre" in refptname:
@@ -1094,9 +1128,9 @@ def readpoints(ds, planfolder):
                     ctcenter = refpoint
                 if "drp" in refptname or "DRP" in refptname:
                     doserefpt = refpoint
-                print("isocenter:", isocenter)
+                #print("isocenter:", isocenter)
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourGeometricType = 'POINT'
-                ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].NumberofContourPoints = 1
+                ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].NumberOfContourPoints = 1
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence = Sequence()
                 ContourImage1 = Dataset()
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[0].ContourImageSequence.append(ContourImage1)
@@ -1119,7 +1153,7 @@ def readpoints(ds, planfolder):
 
     if len(isocenter) < 2:
         isocenter = ctcenter
-        print("Isocenter not located, setting to ct center: ", str(isocenter))
+        #print("Isocenter not located, setting to ct center: ", str(isocenter))
     if len(isocenter) < 2:
         #print("Isocenter still not located, setting to point with center in name, if not, with iso in name")
         temp_point1 = []
@@ -1141,14 +1175,14 @@ def readpoints(ds, planfolder):
             if  len(ds.ROIContourSequence) > 0: 
                 isocenter = point_values[0] # setting to first point if isocenter or ct center not found
                 #print("setting iso to actual value: " + str(isocenter))
-    print("isocenter before loop to apply shifts to contour sequence points: " + str(isocenter))
+    #print("isocenter before loop to apply shifts to contour sequence points: " + str(isocenter))
     for enteredpoints in ds.ROIContourSequence:
         #print("In loop applying shifts: isocenter:" + str(isocenter) )
         enteredpoints.ContourSequence[0].ContourData[0] = str(float(enteredpoints.ContourSequence[0].ContourData[0]) - xshift)
         enteredpoints.ContourSequence[0].ContourData[1] = str(float(enteredpoints.ContourSequence[0].ContourData[1]) - yshift)
         #enteredpoints.ContourSequence[0].ContourData[2] = str(float(enteredpoints.ContourSequence[0].ContourData[2]) - float(isocenter[2]))  
         #print("bottom of loop applying shifts isocenter:" + str(isocenter))  
-    print("end of read points isocenter:" + str(isocenter))
+    #print("end of read points isocenter:" + str(isocenter))
     return ds            
 ####################################################################################################################################################
 ####################################################################################################################################################
@@ -1159,7 +1193,7 @@ def readpoints(ds, planfolder):
 # will take in data structure.
 ####################################################################################################################################################
 def readroi(ds, planfolder):
-    print("Reading in roi file\n")
+    #print("Reading in roi file\n")
     global ROI_COUNT   
     global SeriesUID
     global StudyInstanceUID
@@ -1228,7 +1262,7 @@ def readroi(ds, planfolder):
                 ROIName = ROIName.replace('\n','')
                 ds.StructureSetROISequence[ROI_COUNT - 1].ROIName = ROIName
                 ds.StructureSetROISequence[ROI_COUNT - 1].ROIGenerationAlgorithm = 'SEMIAUTOMATIC'
-                ds.StructureSetROISequence[ROI_COUNT - 1].ReferencedFrameofReferenceUID = FrameUID
+                ds.StructureSetROISequence[ROI_COUNT - 1].ReferencedFrameOfReferenceUID = FrameUID
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence = Sequence()
                 if ROI_COUNT - prevroi <= len(Colors):
                     ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - prevroi - 1]
@@ -1243,7 +1277,7 @@ def readroi(ds, planfolder):
                     else:
                         ds.ROIContourSequence[ROI_COUNT -1].ROIDisplayColor = Colors[ROI_COUNT - 1 - len(Colors) - len(Colors) - len(Colors)]
                         #print(ROI_COUNT - 1 - len(Colors) - len(Colors) - len(Colors))
-                print('ROI Number & Name: '+str(ROI_COUNT)+', '+ROIName)
+                #print('ROI Number & Name: '+str(ROI_COUNT)+', '+ROIName)
             if "}; // End of ROI" in line: #end of ROI found
                 #ROI_type = line[31:]
                 #ROI_type = ROI_type.replace('\n','')
@@ -1265,7 +1299,7 @@ def readroi(ds, planfolder):
             if "num_points =" in line:
                 npts = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
                 ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[int(curvenum) - 1].ContourGeometricType = 'CLOSED_PLANAR'
-                ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[int(curvenum) - 1].NumberofContourPoints = npts
+                ds.ROIContourSequence[ROI_COUNT - 1].ContourSequence[int(curvenum) - 1].NumberOfContourPoints = npts
             if "points=" in line:
                 flag_points = True
     return ds
@@ -1304,17 +1338,17 @@ def planinit(ds, planame, planandnum, plannumber):
     ds.Modality = 'RTPLAN'
     ds.Manufacturer =Manufacturer
     ds.OperatorsName = ""
-    ds.ManufacturersModelName = model
+    ds.ManufacturerModelName = model
     ds.SoftwareVersions = ['u\'9.0']
     ds.PhysiciansOfRecord = physician
-    ds.PatientsName = patientname
-    ds.PatientsBirthDate = dob
+    ds.PatientName = patientname
+    ds.PatientBirthDate = dob
     ds.PatientID = pid
-    ds.PatientsSex = patient_sex
+    ds.PatientSex = patient_sex
     ds.StudyInstanceUID = StudyInstanceUID
     ds.SeriesInstanceUID = planseriesinstuid + "." + str(plannumber)
     ds.StudyID = sid
-    ds.FrameofReferenceUID = FrameUID
+    ds.FrameOfReferenceUID = FrameUID
     ds.PositionReferenceIndicator = posrefind
     ds.RTPlanLabel = planandnum + '.0' # may need to change this later
     ds.RTPlanName = planame
@@ -1404,7 +1438,7 @@ def readtrial(ds, planfolder, plannumber):
     global PDD16MV
     global PDD10MV
     global PDD6MV
-    print("Entering readtrial function, isocenter: " + str(isocenter))
+    #print("Entering readtrial function, isocenter: " + str(isocenter))
     beamdoses = []
     beamdosefiles = []
     beamcount = 0
@@ -1486,8 +1520,8 @@ def readtrial(ds, planfolder, plannumber):
             elif int(current_dosefile_num) < 100:
                 current_dosefile_num = "0" + current_dosefile_num 
             beamdosefiles.append(current_dosefile_num)
-            print('Reading file: plan.Trail.binary.'+str(current_dosefile_num))
-            print('Number of dose files read: '+str(len(beamdosefiles)))
+            #print('Reading file: plan.Trail.binary.'+str(current_dosefile_num))
+            #print('Number of dose files read: '+str(len(beamdosefiles)))
         if "Beam ={" in line and 'Proton' not in line:
             #print("Line that indicates beam information\n")
             #new beam
@@ -1536,10 +1570,10 @@ def readtrial(ds, planfolder, plannumber):
                 if nameofrefpt == name:
                     doserefpt = point_values[i]
             if doserefpt != []:
-                print("Dose reference point: " + str([float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])]))
+                #print("Dose reference point: " + str([float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])]))
                 ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDoseSpecificationPoint = [float(doserefpt[0])-xshift, float(doserefpt[1])-yshift, float(doserefpt[2])] #Not sure if I need shifts here or not...?
             else:
-                print("No dose reference point, setting to isocenter: " + str([float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]))
+                #print("No dose reference point, setting to isocenter: " + str([float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]))
                 ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamDoseSpecificationPoint = [float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]
         if "      PrescriptionDose =" == line[:24]:
             prescdose = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
@@ -1585,7 +1619,7 @@ def readtrial(ds, planfolder, plannumber):
             else:
                 print("\n \n Error, beam energy not 6, 10, 15 or 16 MV")
                 return
-            print("Beam MU: " + str(beammu))
+            #print("Beam MU: " + str(beammu))
             ds.FractionGroupSequence[0].ReferencedBeamSequence[beamcount - 1].BeamMeterset = beammu
             beamdoses.append(beammu)
 
@@ -1613,13 +1647,13 @@ def readtrial(ds, planfolder, plannumber):
         if "  Couch =" in line and ctrlptlist:
             psupportangle = re.findall(r"[-+]?\d*\.\d+|\d+", line)[0]
         if "     WedgeName = " in line and ctrlptlist:
-            print("wedge name found")
+            #print("wedge name found")
             if re.findall(r'"([^"]*)"', line)[0] == 'No Wedge' or re.findall(r'"([^"]*)"', line)[0] == "":
                 wedgeflag = False
-                print("Wedge is no name")
+                #print("Wedge is no name")
                 numwedges = 0 
             elif "edw" in re.findall(r'"([^"]*)"', line)[0] or "EDW" in re.findall(r'"([^"]*)"', line)[0]:
-                print("Wedge present")
+                #print("Wedge present")
                 wedgetype = "DYNAMIC"
                 wedgeflag = True
                 numwedges = 1
@@ -1632,9 +1666,9 @@ def readtrial(ds, planfolder, plannumber):
                 elif "WedgeTopToBottom" == wedgeinorout:
                     wedgename = re.findall(r'"([^"]*)"', line)[0].upper() +  wedgeangle + "OUT"
                     wedgeorientation = '180'
-                print("Wedge name = ", wedgename)
+                #print("Wedge name = ", wedgename)
             elif "UP" in re.findall(r'"([^"]*)"', line)[0]:
-                print("Wedge present")
+                #print("Wedge present")
                 wedgetype = "STANDARD"
                 wedgeflag = True
                 numwedges = 1
@@ -1661,7 +1695,7 @@ def readtrial(ds, planfolder, plannumber):
                 elif "WedgeBottomToTop" == wedgeinorout:
                     wedgename = "W" +  str(int(wedgeangle)) + "IN" + numberinname# + "U"
                     wedgeorientation = '0' # temporary until I find out what to put here
-                print("Wedge name = ", wedgename)
+                #print("Wedge name = ", wedgename)
         if "LeftJawPosition" in line and x1 == "":
             x1 = str(-float(re.findall(r"[-+]?\d*\.\d+|\d+", line)[0])*10)
             #print("X jaw 1:", x1, "\n")
@@ -1778,7 +1812,7 @@ def readtrial(ds, planfolder, plannumber):
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].BeamLimitingDeviceRotationDirection = 'NONE'
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportAngle = psupportangle
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].PatientSupportRotationDirection = 'NONE'
-                    print("Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
+                    #print("Setting Isocenter postion: " + "[" + str(float(isocenter[0]) - xshift) +" , " +str(float(isocenter[1]) - yshift) + " , " + str(float(isocenter[2]))+ "]")
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].IsocenterPosition = [float(isocenter[0]) - xshift, float(isocenter[1]) - yshift, float(isocenter[2])]
                     ds.BeamSequence[beamcount - 1].ControlPointSequence[j].GantryRotationDirection = gantryrotdir
                 else:
@@ -1956,8 +1990,8 @@ def readtrial(ds, planfolder, plannumber):
         doseds.PixelData = pixel_binary_block
         ofile.close()
         dosefilename="RD."+doseds.file_meta.MediaStorageSOPInstanceUID+".dcm"
-        print("\n Creating Dose file named : %s \n"%(dosefilename))
-        doseds.save_as(Outputf+"%s/%s"%(patientfolder,dosefilename))
+        #print("\n Creating Dose file named : %s \n"%(dosefilename))
+        #doseds.save_as(Outputf+"%s/%s"%(patientfolder,dosefilename),write_like_original=False)
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence = Sequence()
     #ReferencedDoseReference2 = Dataset()
     #ds.FractionGroupSequence[0].ReferencedDoseReferenceSequence.append(ReferencedDoseReference2)
@@ -2011,7 +2045,7 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
     file_meta.ImplementationClassUID = gImplementationClassUID #this value remains static since implementation for creating file is the same
     # Create the FileDataset instance (initially no data elements, but file_meta supplied)
     RDfilename="RD."+file_meta.MediaStorageSOPInstanceUID+".dcm"
-    print("Dose file name : " + RDfilename)
+    #print("Dose file name : " + RDfilename)
 
     ds = FileDataset(RDfilename, {}, file_meta=file_meta, preamble=b'\x00'*128)
     
@@ -2026,13 +2060,13 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
     ds.Modality = 'RTDOSE'
     ds.Manufacturer = Manufacturer
     ds.OperatorsName = ""
-    ds.ManufacturersModelName = model
+    ds.ManufacturerModelName = model
     ds.SoftwareVersions = ['u\'9.0']
     ds.PhysiciansOfRecord = physician
-    ds.PatientsName = patientname
-    ds.PatientsBirthDate = dob
+    ds.PatientName = patientname
+    ds.PatientBirthDate = dob
     ds.PatientID = pid
-    ds.PatientsSex = patient_sex
+    ds.PatientSex = patient_sex
     ds.SliceThickness = pixspacingz #Get this value from images???
     ds.StudyInstanceUID = StudyInstanceUID
     ds.SeriesInstanceUID = doseseriesuid + "." + str(plannumber) + str(beamnum)
@@ -2082,7 +2116,7 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
     ds.GridFrameOffsetVector = frameoffsetvect
     pixeldatallist = []
     randomcounter = 0
-    print("Binary file: " + "plan.Trial.binary.%s"%binarynum)
+    #print("Binary file: " + "plan.Trial.binary.%s"%binarynum)
     if os.path.isfile("%s%s/%s/plan.Trial.binary.%s"%(Inputf, patientfolder, planfolder, binarynum)):
         with open("%s%s/%s/plan.Trial.binary.%s"%(Inputf,patientfolder, planfolder, binarynum), "rb") as binary_file:
             data_element = binary_file.read(4)
@@ -2098,8 +2132,8 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
                 data_element = binary_file.read(4)
     else:
         flag_nobinaryfile = True
-    print("Length of Pixel Data list: " + str(len(pixeldatallist)))
-    print("Z dim: " + str(dosezdim) + "       X dim: " + str(dosexdim)  + "       Y dim: " + str(doseydim))
+    #print("Length of Pixel Data list: " + str(len(pixeldatallist)))
+    #print("Z dim: " + str(dosezdim) + "       X dim: " + str(dosexdim)  + "       Y dim: " + str(doseydim))
     if len(pixeldatallist) == 0: #if the binary file is empty, treat as if it does not exist
         flag_nobinaryfile = True
     main_pix_array = []
@@ -2144,7 +2178,7 @@ def creatertdose(plannumber, planfolder, beamnum, binarynum, beamdosevalue, numf
         pixel_binary_block = struct.pack('%si' % len(pixelvaluelist), *pixelvaluelist)
         temp_beamds.PixelData = pixel_binary_block
         #print("\n Creating Dose file named : %s \n"%(RDfilename))
-        #temp_beamds.save_as(Outputfolder+"%s/%s"%(patientfolder,RDfilename))
+        #temp_beamds.save_as(Outputfolder+"%s/%s"%(patientfolder,RDfilename),write_like_original=False)
     return main_pix_array, ds
 
 ####################################################################################################################################################
